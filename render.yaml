@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: website-backend
+    env: node
+    rootDir: website_backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Add these in Render dashboard (Environment tab):
+      # GMAIL_USER=intrinsicspider@gmail.com
+      # GMAIL_APP_PASSWORD=lqjttsuqmsdzhnxy
+      # ADMIN_EMAIL=intrinsicspider@gmail.com
+

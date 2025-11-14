@@ -1,0 +1,53 @@
+═══════════════════════════════════════════════════════════════
+  RENDER DEPLOYMENT - QUICK SETUP GUIDE
+═══════════════════════════════════════════════════════════════
+
+STEP 1: Push to GitHub
+  ✓ Make sure website_backend folder is in your repo
+  ✓ Commit and push all changes
+
+STEP 2: Create Web Service on Render
+  1. Go to https://render.com
+  2. Click "New +" → "Web Service"
+  3. Connect your GitHub repository
+  4. Select the repo containing website_backend
+
+STEP 3: Configure Service Settings
+  Name: website-backend
+  Region: Choose closest to you
+  Branch: main (or your default branch)
+  Root Directory: website_backend
+  Runtime: Node
+  Build Command: npm install
+  Start Command: npm start
+
+STEP 4: Set Environment Variables
+  Click "Environment" tab and add these (one by one):
+
+  GMAIL_USER
+  Value: intrinsicspider@gmail.com
+
+  GMAIL_APP_PASSWORD
+  Value: lqjttsuqmsdzhnxy
+
+  ADMIN_EMAIL
+  Value: intrinsicspider@gmail.com
+
+  NODE_ENV
+  Value: production
+
+STEP 5: Deploy
+  Click "Create Web Service"
+  Wait 2-3 minutes for deployment
+  Your backend URL: https://spiders-backend.onrender.com
+
+STEP 6: Frontend Already Configured
+  ✓ Frontend is already set to use: https://spiders-backend.onrender.com/api
+  ✓ No changes needed!
+
+STEP 7: Test
+  Submit contact form
+  Check intrinsicspider@gmail.com for emails
+
+═══════════════════════════════════════════════════════════════
+
