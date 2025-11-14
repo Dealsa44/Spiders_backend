@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import threading
-from resend import Resend
+import resend
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,9 +21,8 @@ SENDER_EMAIL = os.getenv('GMAIL_USER', 'onboarding@resend.dev')  # Fallback to R
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', SENDER_EMAIL)
 
 # Initialize Resend client
-resend_client = None
 if RESEND_API_KEY:
-    resend_client = Resend(api_key=RESEND_API_KEY)
+    resend.api_key = RESEND_API_KEY
     print(f"[EMAIL] Resend client initialized")
 else:
     print(f"[EMAIL] WARNING: RESEND_API_KEY not set!")
@@ -283,7 +282,7 @@ def format_admin_email(data):
 
 def send_email(to_email, subject, html_body):
     """Send an email using Resend API"""
-    if not resend_client:
+    if not RESEND_API_KEY:
         raise Exception("Resend client not initialized. Please set RESEND_API_KEY environment variable.")
     
     try:
@@ -304,7 +303,7 @@ def send_email(to_email, subject, html_body):
         }
         
         print(f"[EMAIL] Calling Resend API...")
-        email_response = resend_client.emails.send(params)
+        email_response = resend.Emails.send(params)
         
         print(f"✅ Email sent successfully to {to_email}")
         print(f"✅ Resend response: {email_response}")
