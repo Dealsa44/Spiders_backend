@@ -7,16 +7,20 @@ dotenv.config();
 const createTransporter = () => {
   return nodemailer.createTransport({
     service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // true for 465, false for other ports
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD // Use App Password, not regular password
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000, // 10 seconds
-    socketTimeout: 10000, // 10 seconds
-    pool: true,
-    maxConnections: 1,
-    maxMessages: 3
+    connectionTimeout: 60000, // 60 seconds
+    greetingTimeout: 30000, // 30 seconds
+    socketTimeout: 60000, // 60 seconds
+    pool: false, // Disable pooling for better reliability
+    tls: {
+      rejectUnauthorized: false // Allow self-signed certificates if needed
+    }
   });
 };
 
@@ -268,6 +272,24 @@ const formatAdminEmail = (data) => {
   };
 };
 
+// Retry function for sending emails
+const sendWithRetry = async (transporter, mailOptions, retries = 3, delay = 2000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const result = await transporter.sendMail(mailOptions);
+      return result;
+    } catch (error) {
+      console.error(`Attempt ${i + 1}/${retries} failed:`, error.message);
+      if (i === retries - 1) {
+        throw error; // Last attempt failed, throw the error
+      }
+      // Wait before retrying with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff
+    }
+  }
+};
+
 // Send emails to both user and admin
 export const sendEmails = async (data) => {
   // Validate environment variables
@@ -278,14 +300,25 @@ export const sendEmails = async (data) => {
   const transporter = createTransporter();
   const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
 
+  // Verify connection first
+  try {
+    console.log('Verifying email transporter connection...');
+    await transporter.verify();
+    console.log('Email transporter verified successfully');
+  } catch (verifyError) {
+    console.error('Email transporter verification failed:', verifyError.message);
+    transporter.close();
+    throw new Error(`Email service unavailable: ${verifyError.message}`);
+  }
+
   // Prepare email content
   const userEmailContent = formatUserEmail(data);
   const adminEmailContent = formatAdminEmail(data);
 
+  // Send confirmation email to user (with retry)
   try {
-    // Send confirmation email to user
     console.log(`Attempting to send confirmation email to: ${data.userEmail}`);
-    const userResult = await transporter.sendMail({
+    const userResult = await sendWithRetry(transporter, {
       from: `"Intrinsic Spiders" <${process.env.GMAIL_USER}>`,
       to: data.userEmail,
       replyTo: adminEmail,
@@ -293,25 +326,37 @@ export const sendEmails = async (data) => {
     });
     console.log('User confirmation email sent successfully:', userResult.messageId);
   } catch (userError) {
-    console.error('Failed to send user confirmation email:', userError.message);
+    console.error('Failed to send user confirmation email after retries:', userError.message);
+    console.error('User email error details:', {
+      code: userError.code,
+      command: userError.command,
+      response: userError.response
+    });
     // Continue to try sending admin email even if user email fails
   }
 
+  // Send notification email to admin (with retry)
   try {
-    // Send notification email to admin
     console.log(`Attempting to send notification email to: ${adminEmail}`);
-    const adminResult = await transporter.sendMail({
+    const adminResult = await sendWithRetry(transporter, {
       from: `"Website Contact Form" <${process.env.GMAIL_USER}>`,
       to: adminEmail,
       ...adminEmailContent
     });
     console.log('Admin notification email sent successfully:', adminResult.messageId);
   } catch (adminError) {
-    console.error('Failed to send admin notification email:', adminError.message);
-    // If admin email fails, throw error so the API can respond appropriately
-    throw new Error(`Failed to send admin notification: ${adminError.message}`);
+    console.error('Failed to send admin notification email after retries:', adminError.message);
+    console.error('Admin email error details:', {
+      code: adminError.code,
+      command: adminError.command,
+      response: adminError.response
+    });
+    // Don't throw - we've already logged the error
+    // The form submission was successful, email failure is secondary
   }
 
+  // Close the transporter connection
+  transporter.close();
   console.log(`Email process completed for ${data.userEmail}`);
 };
 
