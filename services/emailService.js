@@ -111,6 +111,7 @@ const formatUserEmail = (data) => {
             </ul>
           </div>
           
+          
           <div class="footer">
             <p>Best regards,<br><strong>The Intrinsic Spiders Team</strong></p>
             <p style="margin-top: 20px; font-size: 12px; color: #999;">
