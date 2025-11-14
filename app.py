@@ -277,6 +277,7 @@ def format_admin_email(data):
 def send_email(to_email, subject, html_body):
     """Send an email using SMTP"""
     try:
+        print(f"[EMAIL] Creating message for {to_email}")
         msg = MIMEMultipart('alternative')
         msg['From'] = SENDER_EMAIL
         msg['To'] = to_email
@@ -284,15 +285,29 @@ def send_email(to_email, subject, html_body):
         
         msg.attach(MIMEText(html_body, 'html'))
         
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        print(f"[EMAIL] Connecting to {SMTP_SERVER}:{SMTP_PORT}")
+        print(f"[EMAIL] Using credentials: {SENDER_EMAIL} (password length: {len(SENDER_PASSWORD) if SENDER_PASSWORD else 0})")
+        
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=30) as server:
+            print(f"[EMAIL] Starting TLS...")
             server.starttls()
+            print(f"[EMAIL] Logging in...")
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            print(f"[EMAIL] Sending message...")
             server.send_message(msg)
         
-        print(f"Email sent successfully to {to_email}")
+        print(f"✅ Email sent successfully to {to_email}")
         return True
+    except smtplib.SMTPException as e:
+        print(f"❌ SMTP Error sending email to {to_email}: {e}")
+        import traceback
+        print(traceback.format_exc())
+        raise
     except Exception as e:
-        print(f"Error sending email to {to_email}: {e}")
+        print(f"❌ Error sending email to {to_email}: {e}")
+        print(f"❌ Error type: {type(e).__name__}")
+        import traceback
+        print(traceback.format_exc())
         raise
 
 @app.route('/health', methods=['GET'])
@@ -370,6 +385,11 @@ def send_contact_email():
         
         # Send emails in background thread (non-blocking)
         def send_emails_background():
+            print('[BACKGROUND THREAD] Starting email sending process...')
+            print(f'[BACKGROUND THREAD] SENDER_EMAIL: {SENDER_EMAIL}')
+            print(f'[BACKGROUND THREAD] SENDER_PASSWORD exists: {bool(SENDER_PASSWORD)}')
+            print(f'[BACKGROUND THREAD] ADMIN_EMAIL: {ADMIN_EMAIL}')
+            
             try:
                 print(f'=== SENDING USER CONFIRMATION EMAIL ===')
                 print(f'To: {email}')
@@ -379,7 +399,9 @@ def send_contact_email():
                 print('✅ User confirmation email sent successfully!')
             except Exception as user_error:
                 print(f'❌ Failed to send user confirmation email: {user_error}')
+                print(f'❌ Error type: {type(user_error).__name__}')
                 import traceback
+                print('❌ Full traceback:')
                 print(traceback.format_exc())
             
             try:
@@ -391,8 +413,12 @@ def send_contact_email():
                 print('✅ Admin notification email sent successfully!')
             except Exception as admin_error:
                 print(f'❌ Failed to send admin notification email: {admin_error}')
+                print(f'❌ Error type: {type(admin_error).__name__}')
                 import traceback
+                print('❌ Full traceback:')
                 print(traceback.format_exc())
+            
+            print('[BACKGROUND THREAD] Email sending process completed.')
         
         # Start email sending in background thread
         email_thread = threading.Thread(target=send_emails_background)
