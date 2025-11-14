@@ -7,22 +7,21 @@ dotenv.config();
 const createTransporter = () => {
   console.log('=== Creating Gmail transporter ===');
   console.log('SMTP Host: smtp.gmail.com');
-  console.log('SMTP Port: 465 (SSL)');
+  console.log('SMTP Port: 587 (STARTTLS)');
   console.log('Gmail User:', process.env.GMAIL_USER);
   console.log('App Password length:', process.env.GMAIL_APP_PASSWORD?.length || 0);
   
-  // Try port 465 with SSL first (more reliable on some networks)
-  // If that fails, the retry logic will handle it
+  // Use port 587 with STARTTLS (works better on Render's free tier)
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Use SSL for port 465
+    port: 587,
+    secure: false, // Use STARTTLS for port 587
+    requireTLS: true, // Require TLS upgrade
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD // Use App Password, not regular password
     },
-    connectionTimeout: 10000, // 10 seconds - reduced timeout
+    connectionTimeout: 10000, // 10 seconds
     greetingTimeout: 5000, // 5 seconds
     socketTimeout: 10000, // 10 seconds
     pool: false, // Disable pooling for better reliability
