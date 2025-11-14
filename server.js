@@ -44,8 +44,12 @@ app.get('/health', (req, res) => {
 
 // Contact form submission endpoint
 app.post('/api/contact', async (req, res) => {
+  console.log('=== CONTACT FORM REQUEST RECEIVED ===');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const { name, email, phone, message, selectedDate, selectedTimeSlot } = req.body;
+    console.log('Parsed data:', { name, email, phone: phone || 'not provided', hasMessage: !!message, hasBooking: !!(selectedDate && selectedTimeSlot) });
 
     // Validate required fields
     if (!name || !email) {
@@ -81,15 +85,28 @@ app.post('/api/contact', async (req, res) => {
     }
 
     // Send emails (don't await - send response immediately, emails will be sent in background)
+    console.log('=== Starting email sending process ===');
+    console.log('Email data:', {
+      userName: name,
+      userEmail: email,
+      userPhone: phone || 'Not provided',
+      hasBooking: !!bookingInfo
+    });
+    
     sendEmails({
       userName: name,
       userEmail: email,
       userPhone: phone || 'Not provided',
       userMessage: message || 'No message provided',
       bookingInfo: bookingInfo
+    }).then(() => {
+      console.log('=== Email sending completed successfully ===');
     }).catch(err => {
       // Log email errors but don't block the response
-      console.error('Background email sending failed:', err);
+      console.error('=== Background email sending failed ===');
+      console.error('Error:', err);
+      console.error('Error message:', err.message);
+      console.error('Error stack:', err.stack);
     });
 
     // Return success immediately (emails sent in background)

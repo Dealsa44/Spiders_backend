@@ -302,13 +302,30 @@ const sendWithRetry = async (transporter, mailOptions, retries = 3, delay = 2000
 
 // Send emails to both user and admin
 export const sendEmails = async (data) => {
+  console.log('=== sendEmails function called ===');
+  console.log('Received data:', {
+    userName: data.userName,
+    userEmail: data.userEmail,
+    hasBooking: !!data.bookingInfo
+  });
+
   // Validate environment variables
+  console.log('Checking environment variables...');
+  console.log('GMAIL_USER exists:', !!process.env.GMAIL_USER);
+  console.log('GMAIL_APP_PASSWORD exists:', !!process.env.GMAIL_APP_PASSWORD);
+  console.log('ADMIN_EMAIL:', process.env.ADMIN_EMAIL || 'not set (will use GMAIL_USER)');
+
   if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    throw new Error('Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+    const error = new Error('Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+    console.error('=== Environment variables missing ===');
+    console.error(error.message);
+    throw error;
   }
 
+  console.log('Creating email transporter...');
   const transporter = createTransporter();
   const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
+  console.log('Admin email:', adminEmail);
 
   // Skip verify() - it can hang on Render's free tier
   // We'll verify by attempting to send instead
