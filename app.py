@@ -1,12 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import os
 from dotenv import load_dotenv
 from datetime import datetime
 import threading
+from resend import Resend
 
 # Load environment variables from .env file
 load_dotenv()
@@ -15,11 +13,18 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes, allowing your frontend to connect
 
 # Email configuration from environment variables
-SENDER_EMAIL = os.getenv('GMAIL_USER')
-SENDER_PASSWORD = os.getenv('GMAIL_APP_PASSWORD')  # App-specific password for Gmail
+# Using Resend API instead of SMTP (works on Render's free tier)
+RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+SENDER_EMAIL = os.getenv('GMAIL_USER', 'onboarding@resend.dev')  # Fallback to Resend default
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', SENDER_EMAIL)
-SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-SMTP_PORT = int(os.getenv('SMTP_PORT', 587))  # 587 for TLS, 465 for SSL
+
+# Initialize Resend client
+resend_client = None
+if RESEND_API_KEY:
+    resend_client = Resend(api_key=RESEND_API_KEY)
+    print(f"[EMAIL] Resend client initialized")
+else:
+    print(f"[EMAIL] WARNING: RESEND_API_KEY not set!")
 
 def format_user_email(data):
     """Format the confirmation email sent to the user"""
@@ -275,34 +280,29 @@ def format_admin_email(data):
     return html
 
 def send_email(to_email, subject, html_body):
-    """Send an email using SMTP"""
+    """Send an email using Resend API"""
+    if not resend_client:
+        raise Exception("Resend client not initialized. Please set RESEND_API_KEY environment variable.")
+    
     try:
-        print(f"[EMAIL] Creating message for {to_email}")
-        msg = MIMEMultipart('alternative')
-        msg['From'] = SENDER_EMAIL
-        msg['To'] = to_email
-        msg['Subject'] = subject
+        print(f"[EMAIL] Sending email via Resend API")
+        print(f"[EMAIL] To: {to_email}")
+        print(f"[EMAIL] From: {SENDER_EMAIL}")
+        print(f"[EMAIL] Subject: {subject}")
         
-        msg.attach(MIMEText(html_body, 'html'))
+        params = {
+            "from": f"Intrinsic Spiders <{SENDER_EMAIL}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body
+        }
         
-        print(f"[EMAIL] Connecting to {SMTP_SERVER}:{SMTP_PORT}")
-        print(f"[EMAIL] Using credentials: {SENDER_EMAIL} (password length: {len(SENDER_PASSWORD) if SENDER_PASSWORD else 0})")
-        
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=30) as server:
-            print(f"[EMAIL] Starting TLS...")
-            server.starttls()
-            print(f"[EMAIL] Logging in...")
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            print(f"[EMAIL] Sending message...")
-            server.send_message(msg)
+        print(f"[EMAIL] Calling Resend API...")
+        email_response = resend_client.emails.send(params)
         
         print(f"✅ Email sent successfully to {to_email}")
+        print(f"✅ Resend response: {email_response}")
         return True
-    except smtplib.SMTPException as e:
-        print(f"❌ SMTP Error sending email to {to_email}: {e}")
-        import traceback
-        print(traceback.format_exc())
-        raise
     except Exception as e:
         print(f"❌ Error sending email to {to_email}: {e}")
         print(f"❌ Error type: {type(e).__name__}")
@@ -348,10 +348,9 @@ def send_contact_email():
             }), 400
         
         # Check if environment variables are set
-        if not SENDER_EMAIL or not SENDER_PASSWORD:
+        if not RESEND_API_KEY:
             print('Missing environment variables:', {
-                'GMAIL_USER': bool(SENDER_EMAIL),
-                'GMAIL_APP_PASSWORD': bool(SENDER_PASSWORD)
+                'RESEND_API_KEY': bool(RESEND_API_KEY)
             })
             return jsonify({
                 "success": False,
@@ -387,7 +386,7 @@ def send_contact_email():
         def send_emails_background():
             print('[BACKGROUND THREAD] Starting email sending process...')
             print(f'[BACKGROUND THREAD] SENDER_EMAIL: {SENDER_EMAIL}')
-            print(f'[BACKGROUND THREAD] SENDER_PASSWORD exists: {bool(SENDER_PASSWORD)}')
+            print(f'[BACKGROUND THREAD] RESEND_API_KEY exists: {bool(RESEND_API_KEY)}')
             print(f'[BACKGROUND THREAD] ADMIN_EMAIL: {ADMIN_EMAIL}')
             
             try:
