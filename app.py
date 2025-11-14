@@ -15,6 +15,8 @@ CORS(app)  # Enable CORS for all routes, allowing your frontend to connect
 # Email configuration from environment variables
 # Using Resend API instead of SMTP (works on Render's free tier)
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
+# Use Resend's default sender for now (works without verification)
+# Later you can change this to your verified email
 SENDER_EMAIL = os.getenv('GMAIL_USER', 'onboarding@resend.dev')  # Fallback to Resend default
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', SENDER_EMAIL)
 
@@ -290,8 +292,12 @@ def send_email(to_email, subject, html_body):
         print(f"[EMAIL] From: {SENDER_EMAIL}")
         print(f"[EMAIL] Subject: {subject}")
         
+        # Use Resend's default sender (works without domain/email verification)
+        # Format: "Display Name <email@domain.com>"
+        from_email = SENDER_EMAIL if SENDER_EMAIL and SENDER_EMAIL != 'onboarding@resend.dev' else 'onboarding@resend.dev'
+        
         params = {
-            "from": f"Intrinsic Spiders <{SENDER_EMAIL}>",
+            "from": f"Intrinsic Spiders <{from_email}>",
             "to": [to_email],
             "subject": subject,
             "html": html_body
