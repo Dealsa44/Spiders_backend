@@ -9,8 +9,29 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+// Allow requests from localhost (development) and Vercel (production)
+const allowedOrigins = [
+  'http://localhost:4200',
+  'https://spiders-umber.vercel.app',
+  process.env.FRONTEND_URL
+].filter(Boolean); // Remove any undefined values
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*', // Allow all origins in production, or set specific URL
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow all origins if FRONTEND_URL is not set (for development)
+    if (allowedOrigins.length === 0 || process.env.FRONTEND_URL === '*') {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin?.includes('localhost') || origin?.includes('vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now, can be restricted later
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
