@@ -2,7 +2,6 @@ services:
   - type: web
     name: website-backend
     env: node
-    rootDir: website_backend
     buildCommand: npm install
     startCommand: npm start
     envVars:
