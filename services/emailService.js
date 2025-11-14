@@ -5,9 +5,15 @@ dotenv.config();
 
 // Create transporter for Gmail
 const createTransporter = () => {
+  console.log('=== Creating Gmail transporter ===');
+  console.log('SMTP Host: smtp.gmail.com');
+  console.log('SMTP Port: 465 (SSL)');
+  console.log('Gmail User:', process.env.GMAIL_USER);
+  console.log('App Password length:', process.env.GMAIL_APP_PASSWORD?.length || 0);
+  
   // Try port 465 with SSL first (more reliable on some networks)
   // If that fails, the retry logic will handle it
-  return nodemailer.createTransport({
+  const transporter = nodemailer.createTransport({
     service: 'gmail',
     host: 'smtp.gmail.com',
     port: 465,
@@ -16,16 +22,22 @@ const createTransporter = () => {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD // Use App Password, not regular password
     },
-    connectionTimeout: 20000, // 20 seconds (reduced from 60)
-    greetingTimeout: 10000, // 10 seconds
-    socketTimeout: 20000, // 20 seconds
+    connectionTimeout: 10000, // 10 seconds - reduced timeout
+    greetingTimeout: 5000, // 5 seconds
+    socketTimeout: 10000, // 10 seconds
     pool: false, // Disable pooling for better reliability
     tls: {
       rejectUnauthorized: false // Allow self-signed certificates if needed
     },
     debug: true, // Enable debug logging
-    logger: true // Enable logger
+    logger: (info) => {
+      // Custom logger to see all SMTP events
+      console.log('[SMTP DEBUG]', info.message || info);
+    }
   });
+  
+  console.log('=== Transporter created successfully ===');
+  return transporter;
 };
 
 // Format email content for user (confirmation email)
@@ -280,22 +292,43 @@ const formatAdminEmail = (data) => {
 const sendWithRetry = async (transporter, mailOptions, retries = 3, delay = 2000) => {
   for (let i = 0; i < retries; i++) {
     try {
-      // Add timeout wrapper to prevent hanging
+      console.log(`[Attempt ${i + 1}/${retries}] Starting email send...`);
+      console.log(`[Attempt ${i + 1}/${retries}] To: ${mailOptions.to}`);
+      console.log(`[Attempt ${i + 1}/${retries}] Subject: ${mailOptions.subject}`);
+      
+      // Add timeout wrapper to prevent hanging (reduced to 15 seconds)
+      const startTime = Date.now();
       const result = await Promise.race([
-        transporter.sendMail(mailOptions),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Email send timeout after 30 seconds')), 30000)
-        )
+        transporter.sendMail(mailOptions).then(result => {
+          const elapsed = Date.now() - startTime;
+          console.log(`[Attempt ${i + 1}/${retries}] Email sent successfully in ${elapsed}ms`);
+          return result;
+        }),
+        new Promise((_, reject) => {
+          setTimeout(() => {
+            const elapsed = Date.now() - startTime;
+            console.error(`[Attempt ${i + 1}/${retries}] Email send TIMEOUT after ${elapsed}ms`);
+            reject(new Error(`Email send timeout after 15 seconds (attempt ${i + 1})`));
+          }, 15000);
+        })
       ]);
       return result;
     } catch (error) {
-      console.error(`Attempt ${i + 1}/${retries} failed:`, error.message);
+      console.error(`[Attempt ${i + 1}/${retries}] FAILED:`, error.message);
+      console.error(`[Attempt ${i + 1}/${retries}] Error code:`, error.code);
+      console.error(`[Attempt ${i + 1}/${retries}] Error command:`, error.command);
+      console.error(`[Attempt ${i + 1}/${retries}] Error response:`, error.response);
+      
       if (i === retries - 1) {
+        console.error(`[Attempt ${i + 1}/${retries}] All retries exhausted, throwing error`);
         throw error; // Last attempt failed, throw the error
       }
+      
       // Wait before retrying with exponential backoff
+      console.log(`[Attempt ${i + 1}/${retries}] Waiting ${delay}ms before retry...`);
       await new Promise(resolve => setTimeout(resolve, delay));
       delay *= 2; // Exponential backoff
+      console.log(`[Attempt ${i + 1}/${retries}] Retrying with delay ${delay}ms...`);
     }
   }
 };
@@ -337,40 +370,48 @@ export const sendEmails = async (data) => {
 
   // Send confirmation email to user (with retry)
   try {
-    console.log(`Attempting to send confirmation email to: ${data.userEmail}`);
+    console.log(`=== SENDING USER CONFIRMATION EMAIL ===`);
+    console.log(`To: ${data.userEmail}`);
+    console.log(`From: ${process.env.GMAIL_USER}`);
     const userResult = await sendWithRetry(transporter, {
       from: `"Intrinsic Spiders" <${process.env.GMAIL_USER}>`,
       to: data.userEmail,
       replyTo: adminEmail,
       ...userEmailContent
     });
-    console.log('User confirmation email sent successfully:', userResult.messageId);
+    console.log('✅ User confirmation email sent successfully!');
+    console.log('Message ID:', userResult.messageId);
+    console.log('Response:', userResult.response);
   } catch (userError) {
-    console.error('Failed to send user confirmation email after retries:', userError.message);
-    console.error('User email error details:', {
-      code: userError.code,
-      command: userError.command,
-      response: userError.response
-    });
+    console.error('❌ Failed to send user confirmation email after retries');
+    console.error('Error message:', userError.message);
+    console.error('Error code:', userError.code);
+    console.error('Error command:', userError.command);
+    console.error('Error response:', userError.response);
+    console.error('Full error:', JSON.stringify(userError, Object.getOwnPropertyNames(userError)));
     // Continue to try sending admin email even if user email fails
   }
 
   // Send notification email to admin (with retry)
   try {
-    console.log(`Attempting to send notification email to: ${adminEmail}`);
+    console.log(`=== SENDING ADMIN NOTIFICATION EMAIL ===`);
+    console.log(`To: ${adminEmail}`);
+    console.log(`From: ${process.env.GMAIL_USER}`);
     const adminResult = await sendWithRetry(transporter, {
       from: `"Website Contact Form" <${process.env.GMAIL_USER}>`,
       to: adminEmail,
       ...adminEmailContent
     });
-    console.log('Admin notification email sent successfully:', adminResult.messageId);
+    console.log('✅ Admin notification email sent successfully!');
+    console.log('Message ID:', adminResult.messageId);
+    console.log('Response:', adminResult.response);
   } catch (adminError) {
-    console.error('Failed to send admin notification email after retries:', adminError.message);
-    console.error('Admin email error details:', {
-      code: adminError.code,
-      command: adminError.command,
-      response: adminError.response
-    });
+    console.error('❌ Failed to send admin notification email after retries');
+    console.error('Error message:', adminError.message);
+    console.error('Error code:', adminError.code);
+    console.error('Error command:', adminError.command);
+    console.error('Error response:', adminError.response);
+    console.error('Full error:', JSON.stringify(adminError, Object.getOwnPropertyNames(adminError)));
     // Don't throw - we've already logged the error
     // The form submission was successful, email failure is secondary
   }
