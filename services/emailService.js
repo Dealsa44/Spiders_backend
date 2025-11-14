@@ -30,9 +30,11 @@ const createTransporter = () => {
       rejectUnauthorized: false // Allow self-signed certificates if needed
     },
     debug: true, // Enable debug logging
-    logger: (info) => {
-      // Custom logger to see all SMTP events
-      console.log('[SMTP DEBUG]', info.message || info);
+    logger: {
+      debug: (message) => console.log('[SMTP DEBUG]', message),
+      info: (message) => console.log('[SMTP INFO]', message),
+      warn: (message) => console.warn('[SMTP WARN]', message),
+      error: (message) => console.error('[SMTP ERROR]', message)
     }
   });
   
