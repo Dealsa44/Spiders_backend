@@ -9,7 +9,7 @@ services:
       - key: FLASK_ENV
         value: production
       # Add these in Render dashboard (Environment tab):
+      # RESEND_API_KEY=re_your_api_key_here
       # GMAIL_USER=intrinsicspider@gmail.com
-      # GMAIL_APP_PASSWORD=eeqtnjflzpgwduof
       # ADMIN_EMAIL=intrinsicspider@gmail.com
 
