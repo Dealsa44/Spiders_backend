@@ -392,7 +392,8 @@ def send_contact_email():
             print('[BACKGROUND THREAD] Starting email sending process...')
             print(f'[BACKGROUND THREAD] SENDER_EMAIL: {SENDER_EMAIL}')
             print(f'[BACKGROUND THREAD] RESEND_API_KEY exists: {bool(RESEND_API_KEY)}')
-            print(f'[BACKGROUND THREAD] ADMIN_EMAIL: {ADMIN_EMAIL}')
+            print(f'[BACKGROUND THREAD] ACCOUNT_OWNER_EMAIL: {ACCOUNT_OWNER_EMAIL}')
+            print(f'[BACKGROUND THREAD] ADMIN_EMAIL (requested): {ADMIN_EMAIL}')
             
             try:
                 print(f'=== SENDING USER CONFIRMATION EMAIL ===')
@@ -410,10 +411,14 @@ def send_contact_email():
             
             try:
                 print(f'=== SENDING ADMIN NOTIFICATION EMAIL ===')
-                print(f'To: {ADMIN_EMAIL}')
+                # Resend free tier restriction: can only send to account owner's email
+                # Send to account owner email (they can forward or check this inbox)
+                admin_recipient = ACCOUNT_OWNER_EMAIL
+                print(f'To: {admin_recipient} (Resend free tier: sending to account owner)')
                 print(f'From: {SENDER_EMAIL}')
+                print(f'Note: Original admin email ({ADMIN_EMAIL}) cannot be used on free tier')
                 admin_html = format_admin_email(email_data)
-                send_email(ADMIN_EMAIL, f'New Contact Form Submission from {name}', admin_html)
+                send_email(admin_recipient, f'New Contact Form Submission from {name}', admin_html)
                 print('✅ Admin notification email sent successfully!')
             except Exception as admin_error:
                 print(f'❌ Failed to send admin notification email: {admin_error}')
