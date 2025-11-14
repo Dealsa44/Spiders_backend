@@ -413,28 +413,9 @@ def send_contact_email():
             print(f'[BACKGROUND THREAD] ACCOUNT_OWNER_EMAIL: {ACCOUNT_OWNER_EMAIL}')
             print(f'[BACKGROUND THREAD] ADMIN_EMAIL (requested): {ADMIN_EMAIL}')
             
-            try:
-                print(f'=== SENDING USER CONFIRMATION EMAIL ===')
-                print(f'To: {email}')
-                print(f'From: {SENDER_EMAIL}')
-                
-                # Resend free tier restriction: can only send to account owner's email
-                # If user email is different, send to account owner email instead
-                user_recipient = email if email.lower() == ACCOUNT_OWNER_EMAIL.lower() else ACCOUNT_OWNER_EMAIL
-                if user_recipient != email:
-                    print(f'⚠️ Resend free tier: User email ({email}) is not account owner.')
-                    print(f'⚠️ Sending confirmation to account owner ({ACCOUNT_OWNER_EMAIL}) instead.')
-                    print(f'⚠️ Note: User will not receive confirmation email due to Resend free tier limitation.')
-                
-                user_html = format_user_email(email_data)
-                send_email(user_recipient, 'Thank You for Contacting Intrinsic Spiders', user_html)
-                print('✅ User confirmation email sent successfully!')
-            except Exception as user_error:
-                print(f'❌ Failed to send user confirmation email: {user_error}')
-                print(f'❌ Error type: {type(user_error).__name__}')
-                import traceback
-                print('❌ Full traceback:')
-                print(traceback.format_exc())
+            # Skip user confirmation email - Resend free tier only allows sending to account owner
+            print(f'⚠️ Skipping user confirmation email (Resend free tier limitation)')
+            print(f'⚠️ Only sending admin notification to {ACCOUNT_OWNER_EMAIL}')
             
             try:
                 print(f'=== SENDING ADMIN NOTIFICATION EMAIL ===')
