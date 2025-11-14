@@ -5,22 +5,26 @@ dotenv.config();
 
 // Create transporter for Gmail
 const createTransporter = () => {
+  // Try port 465 with SSL first (more reliable on some networks)
+  // If that fails, the retry logic will handle it
   return nodemailer.createTransport({
     service: 'gmail',
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
+    port: 465,
+    secure: true, // Use SSL for port 465
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD // Use App Password, not regular password
     },
-    connectionTimeout: 60000, // 60 seconds
-    greetingTimeout: 30000, // 30 seconds
-    socketTimeout: 60000, // 60 seconds
+    connectionTimeout: 20000, // 20 seconds (reduced from 60)
+    greetingTimeout: 10000, // 10 seconds
+    socketTimeout: 20000, // 20 seconds
     pool: false, // Disable pooling for better reliability
     tls: {
       rejectUnauthorized: false // Allow self-signed certificates if needed
-    }
+    },
+    debug: true, // Enable debug logging
+    logger: true // Enable logger
   });
 };
 
@@ -272,11 +276,17 @@ const formatAdminEmail = (data) => {
   };
 };
 
-// Retry function for sending emails
+// Retry function for sending emails with timeout
 const sendWithRetry = async (transporter, mailOptions, retries = 3, delay = 2000) => {
   for (let i = 0; i < retries; i++) {
     try {
-      const result = await transporter.sendMail(mailOptions);
+      // Add timeout wrapper to prevent hanging
+      const result = await Promise.race([
+        transporter.sendMail(mailOptions),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Email send timeout after 30 seconds')), 30000)
+        )
+      ]);
       return result;
     } catch (error) {
       console.error(`Attempt ${i + 1}/${retries} failed:`, error.message);
@@ -300,16 +310,9 @@ export const sendEmails = async (data) => {
   const transporter = createTransporter();
   const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
 
-  // Verify connection first
-  try {
-    console.log('Verifying email transporter connection...');
-    await transporter.verify();
-    console.log('Email transporter verified successfully');
-  } catch (verifyError) {
-    console.error('Email transporter verification failed:', verifyError.message);
-    transporter.close();
-    throw new Error(`Email service unavailable: ${verifyError.message}`);
-  }
+  // Skip verify() - it can hang on Render's free tier
+  // We'll verify by attempting to send instead
+  console.log('Email transporter created, skipping connection verification (will verify on first send)');
 
   // Prepare email content
   const userEmailContent = formatUserEmail(data);
