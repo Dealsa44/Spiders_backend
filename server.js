@@ -55,6 +55,18 @@ app.post('/api/contact', async (req, res) => {
       });
     }
 
+    // Check if environment variables are set
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      console.error('Missing environment variables:', {
+        GMAIL_USER: !!process.env.GMAIL_USER,
+        GMAIL_APP_PASSWORD: !!process.env.GMAIL_APP_PASSWORD
+      });
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Server configuration error. Please contact support.' 
+      });
+    }
+
     // Format booking information if available
     let bookingInfo = '';
     if (selectedDate && selectedTimeSlot) {
@@ -83,9 +95,11 @@ app.post('/api/contact', async (req, res) => {
     });
   } catch (error) {
     console.error('Error processing contact form:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       success: false, 
-      message: 'Something went wrong. Please try again later.' 
+      message: 'Something went wrong. Please try again later.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

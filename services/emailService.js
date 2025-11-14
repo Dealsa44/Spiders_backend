@@ -264,28 +264,50 @@ const formatAdminEmail = (data) => {
 
 // Send emails to both user and admin
 export const sendEmails = async (data) => {
-  const transporter = createTransporter();
-  const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
+  try {
+    // Validate environment variables
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      throw new Error('Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+    }
 
-  // Prepare email content
-  const userEmailContent = formatUserEmail(data);
-  const adminEmailContent = formatAdminEmail(data);
+    const transporter = createTransporter();
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
 
-  // Send confirmation email to user
-  await transporter.sendMail({
-    from: `"Intrinsic Spiders" <${process.env.GMAIL_USER}>`,
-    to: data.userEmail,
-    replyTo: adminEmail,
-    ...userEmailContent
-  });
+    // Verify transporter connection
+    await transporter.verify();
+    console.log('Email transporter verified successfully');
 
-  // Send notification email to admin
-  await transporter.sendMail({
-    from: `"Website Contact Form" <${process.env.GMAIL_USER}>`,
-    to: adminEmail,
-    ...adminEmailContent
-  });
+    // Prepare email content
+    const userEmailContent = formatUserEmail(data);
+    const adminEmailContent = formatAdminEmail(data);
 
-  console.log(`Emails sent successfully to ${data.userEmail} and ${adminEmail}`);
+    // Send confirmation email to user
+    const userResult = await transporter.sendMail({
+      from: `"Intrinsic Spiders" <${process.env.GMAIL_USER}>`,
+      to: data.userEmail,
+      replyTo: adminEmail,
+      ...userEmailContent
+    });
+    console.log('User confirmation email sent:', userResult.messageId);
+
+    // Send notification email to admin
+    const adminResult = await transporter.sendMail({
+      from: `"Website Contact Form" <${process.env.GMAIL_USER}>`,
+      to: adminEmail,
+      ...adminEmailContent
+    });
+    console.log('Admin notification email sent:', adminResult.messageId);
+
+    console.log(`Emails sent successfully to ${data.userEmail} and ${adminEmail}`);
+  } catch (error) {
+    console.error('Error sending emails:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response
+    });
+    throw error; // Re-throw to be handled by the route handler
+  }
 };
 
