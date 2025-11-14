@@ -80,15 +80,19 @@ app.post('/api/contact', async (req, res) => {
       bookingInfo = `\n\n📅 BOOKING REQUEST:\nDate: ${formattedDate}\nTime: ${selectedTimeSlot}`;
     }
 
-    // Send emails
-    await sendEmails({
+    // Send emails (don't await - send response immediately, emails will be sent in background)
+    sendEmails({
       userName: name,
       userEmail: email,
       userPhone: phone || 'Not provided',
       userMessage: message || 'No message provided',
       bookingInfo: bookingInfo
+    }).catch(err => {
+      // Log email errors but don't block the response
+      console.error('Background email sending failed:', err);
     });
 
+    // Return success immediately (emails sent in background)
     res.json({ 
       success: true, 
       message: 'Your message has been received! We\'ll get back to you soon.' 

@@ -10,7 +10,13 @@ const createTransporter = () => {
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_APP_PASSWORD // Use App Password, not regular password
-    }
+    },
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000, // 10 seconds
+    socketTimeout: 10000, // 10 seconds
+    pool: true,
+    maxConnections: 1,
+    maxMessages: 3
   });
 };
 
@@ -264,50 +270,48 @@ const formatAdminEmail = (data) => {
 
 // Send emails to both user and admin
 export const sendEmails = async (data) => {
+  // Validate environment variables
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    throw new Error('Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
+  }
+
+  const transporter = createTransporter();
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
+
+  // Prepare email content
+  const userEmailContent = formatUserEmail(data);
+  const adminEmailContent = formatAdminEmail(data);
+
   try {
-    // Validate environment variables
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-      throw new Error('Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.');
-    }
-
-    const transporter = createTransporter();
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.GMAIL_USER;
-
-    // Verify transporter connection
-    await transporter.verify();
-    console.log('Email transporter verified successfully');
-
-    // Prepare email content
-    const userEmailContent = formatUserEmail(data);
-    const adminEmailContent = formatAdminEmail(data);
-
     // Send confirmation email to user
+    console.log(`Attempting to send confirmation email to: ${data.userEmail}`);
     const userResult = await transporter.sendMail({
       from: `"Intrinsic Spiders" <${process.env.GMAIL_USER}>`,
       to: data.userEmail,
       replyTo: adminEmail,
       ...userEmailContent
     });
-    console.log('User confirmation email sent:', userResult.messageId);
+    console.log('User confirmation email sent successfully:', userResult.messageId);
+  } catch (userError) {
+    console.error('Failed to send user confirmation email:', userError.message);
+    // Continue to try sending admin email even if user email fails
+  }
 
+  try {
     // Send notification email to admin
+    console.log(`Attempting to send notification email to: ${adminEmail}`);
     const adminResult = await transporter.sendMail({
       from: `"Website Contact Form" <${process.env.GMAIL_USER}>`,
       to: adminEmail,
       ...adminEmailContent
     });
-    console.log('Admin notification email sent:', adminResult.messageId);
-
-    console.log(`Emails sent successfully to ${data.userEmail} and ${adminEmail}`);
-  } catch (error) {
-    console.error('Error sending emails:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      command: error.command,
-      response: error.response
-    });
-    throw error; // Re-throw to be handled by the route handler
+    console.log('Admin notification email sent successfully:', adminResult.messageId);
+  } catch (adminError) {
+    console.error('Failed to send admin notification email:', adminError.message);
+    // If admin email fails, throw error so the API can respond appropriately
+    throw new Error(`Failed to send admin notification: ${adminError.message}`);
   }
+
+  console.log(`Email process completed for ${data.userEmail}`);
 };
 
