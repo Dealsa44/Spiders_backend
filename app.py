@@ -20,8 +20,8 @@ RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 SENDER_EMAIL = os.getenv('GMAIL_USER', 'onboarding@resend.dev')  # Fallback to Resend default
 
 # Resend free tier restriction: can only send to account owner's email
-# Get the account owner email from environment or use a fallback
-ACCOUNT_OWNER_EMAIL = os.getenv('ACCOUNT_OWNER_EMAIL', 'zuratavartkiladze882@gmail.com')
+# Get the account owner email from environment or use intrinsicspider@gmail.com
+ACCOUNT_OWNER_EMAIL = os.getenv('ACCOUNT_OWNER_EMAIL', 'intrinsicspider@gmail.com')
 # Admin email - will use account owner email due to Resend free tier restriction
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', ACCOUNT_OWNER_EMAIL)
 
