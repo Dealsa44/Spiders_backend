@@ -6,6 +6,7 @@ from email.mime.multipart import MIMEMultipart
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+import threading
 
 # Load environment variables from .env file
 load_dotenv()
@@ -367,31 +368,38 @@ def send_contact_email():
         print('=== Starting email sending process ===')
         print('Email data:', email_data)
         
-        # Send confirmation email to user
-        try:
-            print(f'=== SENDING USER CONFIRMATION EMAIL ===')
-            print(f'To: {email}')
-            print(f'From: {SENDER_EMAIL}')
-            user_html = format_user_email(email_data)
-            send_email(email, 'Thank You for Contacting Intrinsic Spiders', user_html)
-            print('✅ User confirmation email sent successfully!')
-        except Exception as user_error:
-            print(f'❌ Failed to send user confirmation email: {user_error}')
-            # Continue to try sending admin email
+        # Send emails in background thread (non-blocking)
+        def send_emails_background():
+            try:
+                print(f'=== SENDING USER CONFIRMATION EMAIL ===')
+                print(f'To: {email}')
+                print(f'From: {SENDER_EMAIL}')
+                user_html = format_user_email(email_data)
+                send_email(email, 'Thank You for Contacting Intrinsic Spiders', user_html)
+                print('✅ User confirmation email sent successfully!')
+            except Exception as user_error:
+                print(f'❌ Failed to send user confirmation email: {user_error}')
+                import traceback
+                print(traceback.format_exc())
+            
+            try:
+                print(f'=== SENDING ADMIN NOTIFICATION EMAIL ===')
+                print(f'To: {ADMIN_EMAIL}')
+                print(f'From: {SENDER_EMAIL}')
+                admin_html = format_admin_email(email_data)
+                send_email(ADMIN_EMAIL, f'New Contact Form Submission from {name}', admin_html)
+                print('✅ Admin notification email sent successfully!')
+            except Exception as admin_error:
+                print(f'❌ Failed to send admin notification email: {admin_error}')
+                import traceback
+                print(traceback.format_exc())
         
-        # Send notification email to admin
-        try:
-            print(f'=== SENDING ADMIN NOTIFICATION EMAIL ===')
-            print(f'To: {ADMIN_EMAIL}')
-            print(f'From: {SENDER_EMAIL}')
-            admin_html = format_admin_email(email_data)
-            send_email(ADMIN_EMAIL, f'New Contact Form Submission from {name}', admin_html)
-            print('✅ Admin notification email sent successfully!')
-        except Exception as admin_error:
-            print(f'❌ Failed to send admin notification email: {admin_error}')
-            # Don't fail the request if email fails
+        # Start email sending in background thread
+        email_thread = threading.Thread(target=send_emails_background)
+        email_thread.daemon = True  # Thread will die when main thread exits
+        email_thread.start()
         
-        # Return success
+        # Return success immediately (emails sent in background)
         return jsonify({
             "success": True,
             "message": "Your message has been received! We'll get back to you soon."
