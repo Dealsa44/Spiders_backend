@@ -1,14 +1,14 @@
 services:
   - type: web 
     name: website-backend
-    env: node
-    buildCommand: npm install
-    startCommand: npm start
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
     envVars:
-      - key: NODE_ENV
+      - key: FLASK_ENV
         value: production
       # Add these in Render dashboard (Environment tab):
       # GMAIL_USER=intrinsicspider@gmail.com
-      # GMAIL_APP_PASSWORD=lqjttsuqmsdzhnxy
+      # GMAIL_APP_PASSWORD=eeqtnjflzpgwduof
       # ADMIN_EMAIL=intrinsicspider@gmail.com
 
