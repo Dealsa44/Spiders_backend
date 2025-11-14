@@ -371,14 +371,27 @@ def send_contact_email():
         booking_info = ''
         if selectedDate and selectedTimeSlot:
             try:
-                # Handle ISO date string (with or without Z)
-                date_str = selectedDate.replace('Z', '+00:00') if selectedDate.endswith('Z') else selectedDate
-                booking_date = datetime.fromisoformat(date_str)
+                # Parse ISO date string - extract just the date part to avoid timezone issues
+                # Format: "2025-11-14T20:00:00.000Z" -> extract "2025-11-14"
+                date_part = selectedDate.split('T')[0]  # Get just the date part (YYYY-MM-DD)
+                # Parse as date only (no time/timezone)
+                from datetime import date as date_class
+                year, month, day = map(int, date_part.split('-'))
+                booking_date = date_class(year, month, day)
                 formatted_date = booking_date.strftime('%A, %B %d, %Y')
                 booking_info = f'\n\n📅 BOOKING REQUEST:\nDate: {formatted_date}\nTime: {selectedTimeSlot}'
             except Exception as e:
                 print(f'Error formatting booking date: {e}')
-                booking_info = f'\n\n📅 BOOKING REQUEST:\nDate: {selectedDate}\nTime: {selectedTimeSlot}'
+                # Fallback: try to extract date part manually
+                try:
+                    date_part = selectedDate.split('T')[0]
+                    year, month, day = map(int, date_part.split('-'))
+                    from datetime import date as date_class
+                    booking_date = date_class(year, month, day)
+                    formatted_date = booking_date.strftime('%A, %B %d, %Y')
+                    booking_info = f'\n\n📅 BOOKING REQUEST:\nDate: {formatted_date}\nTime: {selectedTimeSlot}'
+                except:
+                    booking_info = f'\n\n📅 BOOKING REQUEST:\nDate: {selectedDate}\nTime: {selectedTimeSlot}'
         
         # Prepare email data
         email_data = {
@@ -404,8 +417,17 @@ def send_contact_email():
                 print(f'=== SENDING USER CONFIRMATION EMAIL ===')
                 print(f'To: {email}')
                 print(f'From: {SENDER_EMAIL}')
+                
+                # Resend free tier restriction: can only send to account owner's email
+                # If user email is different, send to account owner email instead
+                user_recipient = email if email.lower() == ACCOUNT_OWNER_EMAIL.lower() else ACCOUNT_OWNER_EMAIL
+                if user_recipient != email:
+                    print(f'⚠️ Resend free tier: User email ({email}) is not account owner.')
+                    print(f'⚠️ Sending confirmation to account owner ({ACCOUNT_OWNER_EMAIL}) instead.')
+                    print(f'⚠️ Note: User will not receive confirmation email due to Resend free tier limitation.')
+                
                 user_html = format_user_email(email_data)
-                send_email(email, 'Thank You for Contacting Intrinsic Spiders', user_html)
+                send_email(user_recipient, 'Thank You for Contacting Intrinsic Spiders', user_html)
                 print('✅ User confirmation email sent successfully!')
             except Exception as user_error:
                 print(f'❌ Failed to send user confirmation email: {user_error}')
